@@ -1,100 +1,82 @@
 import React from 'react';
 import fire from "./fire";
+import firebase from "firebase"
+import StyledFirebaseAuth from 'react-firebaseui/StyledFirebaseAuth'
+import Signedin from './SignedIn'
+
+// firebase.initializeApp({
+//   apiKey: "AIzaSyCTXM2v_7mMOywwSYOs3eM4uFB2E6_FQls",
+//   authDomain: "fir-practice-84b60.firebaseapp.com"
+// })
+
+// fire()
+
 
 class App extends React.Component {
-  constructor() {
-    super();
-    this.state = {
+  
+    state = {
       name: '',
       age: '',
-      allData: []
+      allData: [],
+      isSignedIn: false
     };
+  
+
+  uiConfig = {
+    signInFlow: "popup",
+    signInOptions: [
+      firebase.auth.GoogleAuthProvider.PROVIDER_ID,
+      firebase.auth.TwitterAuthProvider.PROVIDER_ID,
+      firebase.auth.EmailAuthProvider.PROVIDER_ID
+    ],
+    callbacks: {
+      signInSuccess: () => false,
+      signInSuccessWithAuthResult: (authResult, redirectURL) => {
+        console.log(authResult);
+        console.log(fire.firestore());
+
+        fire.firestore().collection('member').doc(authResult.user.uid)
+        .get().then(user => {if (user.exists) {console.log(`user logging in: ${user}`)} else {
+          console.log(user)
+          fire.firestore().collection('member').doc(authResult.user.uid).set({
+            name: authResult.user.displayName
+          })
+        }})
+
+        .catch(err => {console.log(err)})
+
+      }
+    }
   }
 
-  updateInput = e => {
+  // .doc(authResult.additionalUserInfo.profile.id) -- use on line 59 after member
+
+  componentDidMount() {
+
+    firebase.auth().onAuthStateChanged(user => {
+      
+      this.setState({isSignedIn: !!user})
+      console.log("user", user)
+
+    })
+
+  }
+
+  inputHandler = e => {
     this.setState({
       [e.target.name]: e.target.value
     });
   }
 
-  addData = e => {
-    e.preventDefault();
-    const db = fire.firestore(); 
-
-    db.settings({
-      timestampsInSnapshots: true
-    });
-    db.collection('member').add({
-      name: this.state.name,
-      age: this.state.age
-    });
-    this.setState({
-      name: '',
-      age: ''
-    });
-  };
-
-
-  getData = () => {
-    const db = fire.firestore();
-    db.settings({
-      timestampsInSnapshots: true
-    });
-    var wholeData = []
-    db.collection('member').orderBy('name', 'asc').get()
-    .then(snapshot => {
-      snapshot.forEach(doc => {
-        // console.log(doc.id, '=>', doc.data());
-        // console.log(doc.data().name + doc.data().age);
-        console.log(doc.data());
-        wholeData.push(doc.data())
-      });
-      console.log(wholeData)
-      this.setState({allData: wholeData})
-      console.log(this.state.allData)
-    })
-    .catch(error => {
-      console.log('Error!', error);
-    })
-  }
-  
   render() {
-    
-    var listOfData = this.state.allData.map((val, i)=>{
-      var name = val.name
-      var age = val.age
-      return (
-        <li key={i}>{name} ({age})</li>
-      ) 
-    })
-
     return (
       <div style={{margin:'30px'}}>
-        <form onSubmit={this.addData}>
-          <input
-            type="text"
-            name="name"
-            placeholder="Input your name..."
-            onChange={this.updateInput}
-            value={this.state.name}
-          />
-          <br/>
-          <input
-            type="number"
-            name="age"
-            placeholder="Input your age..."
-            onChange={this.updateInput}
-            value={this.state.age}
-          />
-          <br/>
-          <button type="submit">Submit</button>
-        </form>
 
-        <button onClick={this.getData}>
-          Get Data
-        </button>
-
-        <ul>{listOfData}</ul>
+      
+      {this.state.isSignedIn ? <Signedin/> : 
+      <StyledFirebaseAuth 
+        uiConfig={this.uiConfig} 
+        firebaseAuth={fire.auth()} />}
 
       </div>
       );
